@@ -1,0 +1,147 @@
+apiVersion: ctl.enisoc.com/v1
+kind: JobTree
+metadata:
+  name: my-jobtree
+spec:
+  dependencies:
+    a: []
+    b: []
+    c: []
+    d:
+      - b
+    e:
+      - d
+    f:
+      - d
+      - c
+    g:
+      - a
+      - c
+      - e
+    h:
+      - a
+      - e
+      - c
+    i:
+      - g
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: i
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo i starting | ts
+            echo i sleeping for 15 s | ts
+            sleep 15
+            echo i done | ts
+        - name: h
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo h starting | ts
+            echo h sleeping for 15 s | ts
+            sleep 15
+            echo h done | ts
+        - name: g
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo g starting | ts
+            echo g sleeping for 15 s | ts
+            sleep 15
+            echo g done | ts
+        - name: f
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo f starting | ts
+            echo f sleeping for 15 s | ts
+            sleep 15
+            echo f done | ts
+        - name: e
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo e starting | ts
+            echo e sleeping for 15 s | ts
+            sleep 15
+            echo e done | ts
+        - name: d
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo d starting | ts
+            echo d sleeping for 15 s | ts
+            sleep 15
+            echo d done | ts
+        - name: a
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo a starting | ts
+            echo a sleeping for 15 s | ts
+            sleep 15
+            echo a done | ts
+        - name: c
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo c starting | ts
+            echo c sleeping for 15 s | ts
+            sleep 15
+            echo c done | ts
+        - name: b
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo b starting | ts
+            echo b sleeping for 15 s | ts
+            sleep 15
+            echo b done | ts
