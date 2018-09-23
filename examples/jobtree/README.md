@@ -11,7 +11,6 @@ successfully executed.
 ### Deploy the controller
 
 ```sh
-kubectl create namespace jobtree
 kubectl -n metacontroller create configmap jobtree-controller --from-file=sync.py
 kubectl apply -f jobtree-controller.yaml
 ```
@@ -19,6 +18,7 @@ kubectl apply -f jobtree-controller.yaml
 ### Create a JobTree
 
 ```sh
+kubectl create namespace jobtree
 kubectl -n jobtree apply -f my-jobtree.yaml
 ```
 
