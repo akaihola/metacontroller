@@ -49,3 +49,14 @@ $ kubectl logs my-jobtree-a
 ### Failure Policy
 
 To be implemented.
+
+
+### Remove the controller
+
+```sh
+kubectl -n metacontroller delete service jobtree-controller
+kubectl -n metacontroller delete deployment jobtree-controller
+kubectl -n metacontroller delete compositecontroller jobtree-controller
+kubectl -n metacontroller delete crd jobtrees.ctl.enisoc.com
+kubectl -n metacontroller delete configmap jobtree-controller
+```
