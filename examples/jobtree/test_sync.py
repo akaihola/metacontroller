@@ -40,7 +40,7 @@ def test_dummy():
         'controller': {'status': {}},
         'parent': {
             'metadata': {'name': 'MyName'},
-            'spec': {'dependencies': {'EXAMPLE CONTAINER': []},
+            'spec': {'dependencies': [['EXAMPLE CONTAINER', []]],
                      'template': {
                          'spec': {
                              'containers': [{'name': 'EXAMPLE CONTAINER'}]}}}},
@@ -55,4 +55,4 @@ def test_dummy():
                       'spec': {'containers': [{'name': 'EXAMPLE CONTAINER'}],
                                'restartPolicy': 'Never'}}],
         'status': {'counter': 1,
-                   'phases': {}}}
+                   'phases': []}}

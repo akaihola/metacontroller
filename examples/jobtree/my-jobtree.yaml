@@ -4,30 +4,74 @@ metadata:
   name: my-jobtree
 spec:
   dependencies:
-    a: []
-    b: []
-    c: []
-    d:
+    -
+      - background
+      - []
+    -
+      - a
+      -
+        - [background, Running]
+    -
       - b
-    e:
+      -
+        - [background, Running]
+    -
+      - c
+      -
+        - [background, Running]
+    -
       - d
-    f:
-      - d
-      - c
-    g:
-      - a
-      - c
+      -
+        - [background, Running]
+        - [b, Succeeded]
+    -
       - e
-    h:
-      - a
-      - e
-      - c
-    i:
+      -
+        - [background, Running]
+        - [d, Succeeded]
+    -
+      - f
+      -
+        - [background, Running]
+        - [d, Succeeded]
+        - [c, Succeeded]
+    -
+      - f2
+      -
+        - [background, Running]
+        - [f, Succeeded]
+    -
       - g
+      -
+        - [background, Running]
+        - [a, Succeeded]
+        - [c, Succeeded]
+        - [e, Succeeded]
+    -
+      - h
+      -
+        - [background, Running]
+        - [a, Succeeded]
+        - [e, Succeeded]
+        - [c, Succeeded]
+    -
+      - i
+      -
+        - [background, Running]
+        - [g, Succeeded]
   template:
     spec:
       restartPolicy: Never
       containers:
+        - name: background
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            while true; do
+              echo $(date -Iseconds -u) background running
+            done
         - name: i
           image: busybox
           command: ["/bin/sh"]
@@ -80,6 +124,19 @@ spec:
             echo f sleeping for 15 s | ts
             sleep 15
             echo f done | ts
+        - name: f2
+          image: busybox
+          command: ["/bin/sh"]
+          args:
+          - -c
+          - |
+            ts () {
+              while IFS= read -r s; do echo "$(date -Iseconds -u) $s"; done
+            }
+            echo f2 starting | ts
+            echo f2 sleeping for 15 s | ts
+            sleep 15
+            echo f2 done | ts
         - name: e
           image: busybox
           command: ["/bin/sh"]

@@ -4,12 +4,49 @@ import json
 from datetime import datetime
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import Any, Dict, List, Union, Callable
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple
+
+Dependency = Tuple[str, str]  # (job_name, phase)
+Dependencies = List[Dependency]
+DependencyMap = List[Tuple[str, Dependencies]]  # [(job_name, [...])]
+Phase = Tuple[str, str]  # (job_name, phase)
+Phases = List[Phase]
 
 
-Dependencies = List[str]
-DependencyMap = Dict[str, Dependencies]
-Phases = Dict[str, str]
+def get_job_phase(job_name: str, phases: Phases) -> Optional[str]:
+    phases_dict = {job_name: job_phase
+                   for job_name, job_phase in phases}
+    return phases_dict.get(job_name)
+
+
+def set_job_phase(job_name: str, phases: Phases, phase: str) -> None:
+    for index, item in enumerate(phases):
+        name = item[0]
+        if name == job_name:
+            phases[index] = (job_name, phase)
+            break
+    else:
+        phases.append((job_name, phase))
+
+
+def phase_matches(dependency: Dependency,
+                  phases: Phases) -> bool:
+    """Return True if the dependency is currently in the required phase
+
+    The custom internal phase identifier ``Disappeared`` is assumed to be used
+    for jobs whose pods were ``Running`` in a previous invocation but
+    disappeared without turning into ``Succeeded`` or ``Failed``. In such
+    situations, the job is assumed to have succeeded. It is unclear whether
+    this is a bug or an intentional feature of Metacontroller.
+    See: https://github.com/GoogleCloudPlatform/metacontroller/issues/97
+
+    """
+    dependency_name, dependency_phase = dependency
+    current_phase = get_job_phase(dependency_name, phases)
+    if dependency_phase == 'Succeeded':
+        return current_phase in ['Succeeded', 'Disappeared']
+    else:
+        return current_phase == dependency_phase
 
 
 def should_run(job_name: str,
@@ -22,6 +59,7 @@ def should_run(job_name: str,
     disappeared without turning into ``Succeeded`` or ``Failed``. In such
     situations, the job is assumed to have succeeded. It is unclear whether
     this is a bug or an intentional feature of Metacontroller.
+    See: https://github.com/GoogleCloudPlatform/metacontroller/issues/97
 
     :param job_name: The name of the job
     :param phases: Recorded last phases of each job
@@ -29,12 +67,11 @@ def should_run(job_name: str,
     :return: ``True`` if the job should be run or kept running
 
     """
-    phase = phases.get(job_name)
+    phase = get_job_phase(job_name, phases)
     if phase in ['Succeeded', 'Disappeared']:
         return False
-    dependencies_succeeded = all(
-        phases.get(dependency) in ['Succeeded', 'Disappeared']
-        for dependency in my_dependencies)
+    dependencies_succeeded = all(phase_matches(dependency, phases)
+                                 for dependency in my_dependencies)
     return dependencies_succeeded
 
 
@@ -47,9 +84,8 @@ def calculate_jobs(all_dependencies: DependencyMap,
     :return: Names of jobs which should be run or kept running
 
     """
-    return [job_name for job_name in all_dependencies
-            if should_run(job_name, phases,
-                          all_dependencies.get(job_name, []))]
+    return [str(job_name) for job_name, job_dependencies in all_dependencies
+            if should_run(str(job_name), phases, job_dependencies)]
 
 
 KubeData = Union[Any, Dict[str, Any]]
@@ -130,11 +166,11 @@ def handle_json_request(
     # Child pod naming
     name_prefix = '{}-'.format(get('parent:metadata:name'))
 
-    def is_my_child(pod_name: str) -> bool:
-        return pod_name.startswith(name_prefix)
+    def is_my_child(child_pod_name: str) -> bool:
+        return child_pod_name.startswith(name_prefix)
 
-    def extract_name(pod_name: str) -> str:
-        return pod_name[len(name_prefix):]
+    def extract_name(child_pod_name: str) -> str:
+        return child_pod_name[len(name_prefix):]
 
     # Helper for creating child pod definitions
     restart_policy = get('parent:spec:template:spec:restartPolicy', 'Never')
@@ -148,29 +184,33 @@ def handle_json_request(
                          'restartPolicy': restart_policy}}
 
     # Merge previous child pod phases with current phases
-    previous_phases = get('parent:status:phases', {})
+    previous_phases = [(job_name, phase)
+                       for job_name, phase in get('parent:status:phases', [])]
     phases = previous_phases.copy()
     current_jobs = {}
     for pod_name, value in get('children:Pod.v1', {}).items():
         if is_my_child(pod_name):
             job_name = extract_name(pod_name)
             current_jobs[job_name] = value['status']['phase']
-            if phases.get(job_name) != 'Succeeded':
-                phases[job_name] = value['status']['phase']
-    for job_name, phase in list(phases.items()):
+            if get_job_phase(job_name, phases) != 'Succeeded':
+                set_job_phase(job_name, phases, value['status']['phase'])
+    for job_name, phase in phases:
         if phase == 'Running' and job_name not in current_jobs:
             print('  WARNING 31: Job {} was Running but disappeared. Assuming '
                   'it to have succeeded.'.format(job_name))
-            phases[job_name] = 'Disappeared'
+            set_job_phase(job_name, phases, 'Disappeared')
 
     # Compute desired child pods based on observed and past state
-    dependencies = get('parent:spec:dependencies', {})
+    dependencies = [
+        (job_name, [(dep_job_name, dep_phase)
+                    for dep_job_name, dep_phase in job_dependencies])
+        for job_name, job_dependencies in get('parent:spec:dependencies', [])]
     desired_job_names = calculator_func(dependencies, phases)
 
     # Generate the desired child object(s)
     desired_pods = [
         new_pod(container)
-        for container in get('parent:spec:template:spec:containers', [])
+        for container in list(get('parent:spec:template:spec:containers', []))
         if container['name'] in desired_job_names]
 
     # Complete the log entry
@@ -208,7 +248,8 @@ class JobTreeRequestHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.end_headers()
-        response_content = json.dumps(response_json).encode('utf-8')
+        response_content = json.dumps(response_json,
+                                      sort_keys=True).encode('utf-8')
         self.wfile.write(response_content)
 
 
